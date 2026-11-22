@@ -1036,6 +1036,47 @@ function consultarAppsScript(parametros, sucesso, falha) {
   form.submit();
 }
 
+  function receberResposta(evento) {
+    const resposta = evento.data;
+
+    if (
+      !resposta ||
+      resposta.tipo !== "mobview-salvamento" ||
+      resposta.id !== callbackId
+    ) {
+      return;
+    }
+
+    finalizar();
+
+    if (resposta.resultado && resposta.resultado.sucesso) {
+      document.getElementById("statusAtualizacao").textContent =
+        resposta.resultado.mensagem;
+
+      carregarDados();
+
+      // Atualiza também os dados salvos da data atual
+      puxarDadosSalvos();
+
+    } else {
+      const mensagem = resposta.resultado
+        ? resposta.resultado.erro
+        : "Não foi possível confirmar o salvamento.";
+
+      alert("Não foi possível salvar: " + mensagem);
+    }
+  }
+
+  window.addEventListener("message", receberResposta);
+
+  const temporizador = setTimeout(function() {
+    finalizar();
+    alert("Tempo limite excedido. Verifique a planilha antes de tentar salvar novamente.");
+  }, 30000);
+
+  form.submit();
+}
+
   // INICIAR
 
   preencherSelect("uAgrupamento", [], "Selecione...");
