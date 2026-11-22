@@ -1,0 +1,929 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MobView - Painel de Monitoramento</title>
+  <meta name="theme-color" content="#432477">
+  
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='13' fill='%23432477'/%3E%3Cpath d='M8 52V39h8v13zM21 52V30h8v22zM34 52V20h8v32zM47 52V8h8v44z' fill='%23fff'/%3E%3C/svg%3E">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800&display=swap');
+
+    :root {
+      --roxo: #432477;
+      --roxo-claro: #6847a5;
+      --roxo-medio: #7658b7;
+      --fundo: #f5f4f8;
+      --texto: #29243a;
+      --borda: #e3dfeb;
+      --azul-accordion: #d7e5fb;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Nunito Sans', sans-serif; }
+    body { background: var(--fundo); color: var(--texto); }
+
+    header {
+      min-height: 145px;
+      background: linear-gradient(to right, #687CE5, #7355AD);
+      color: white; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 18px; padding: 18px 20px;
+      box-shadow: 0 5px 18px #24134a22;
+    }
+    .logo { font-size: 36px; font-weight: 700; letter-spacing: .2px; display:flex; align-items:center; gap:11px; }
+   
+.logo-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: #432477;
+  box-shadow: 0 2px 8px #1d123b35;
+}
+
+.logo-icone svg {
+  display: block;
+  width: 29px;
+  height: 29px;
+}
+
+    .menu { display:flex; gap:12px; }
+    .menu button { padding:10px 20px; border:1px solid #ffffffbd; border-radius:7px; background:transparent; color:white; font-size:14px; font-weight:700; cursor:pointer; transition:.2s; }
+    .menu button.ativo, .menu button:hover { background:white; color:var(--roxo); }
+
+    .pagina { display:none; }
+    .pagina.ativa { display:block; }
+    .dashboard, .atualizacao {
+      display:grid; grid-template-columns:380px minmax(0,1fr); gap:22px;
+      padding:22px; align-items:stretch; min-height:calc(100vh - 225px);
+    }
+    .filtros, .painel-filtros {
+      background:white; padding:20px; border-radius:9px;
+      box-shadow:0 3px 13px #21133b12; display:flex; flex-direction:column;
+      min-height:calc(100vh - 225px);
+    }
+    .filtros h3, .painel-filtros h3 { margin-bottom:20px; font-size:17px; color:var(--roxo); }
+    .campo { margin-bottom:16px; }
+    .campo label { display:block; font-weight:700; font-size:14px; margin-bottom:7px; }
+    .campo select, .campo input, .campo textarea {
+      width:100%; padding:10px 12px; border:1px solid #d9d5e1; border-radius:7px;
+      background:white; color:#333; font-size:14px; outline:none; transition:.2s;
+    }
+    .campo select:focus, .campo input:focus, .campo textarea:focus { border-color:var(--roxo-claro); box-shadow:0 0 0 3px #6847a51a; }
+    .campo textarea { min-height:75px; resize:vertical; }
+    .botoes { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
+    .botao { padding:10px 17px; border:1px solid var(--roxo); border-radius:7px; background:var(--roxo); color:white; font-weight:700; cursor:pointer; transition:.2s; }
+    .botao:hover { background:#32185f; }
+    .botao.secundario { background:white; color:var(--roxo); }
+    .botao:disabled { opacity:.5; cursor:not-allowed; }
+    /* Logomarca oficial horizontal */
+.logo-lateral {
+  margin-top: auto;
+  padding: 20px 0;
+  width: 120%;
+  height: 400px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.logo-lateral img {
+  display: block;
+  flex: 0 0 auto;
+  width: 450%;
+  max-width: none;
+  height: 400px;
+  margin: 0;
+  object-fit: fill;
+  object-position: left center;
+}
+
+
+    .conteudo, .painel-formulario { min-width:0; background:#ffffff80; border:1px solid #e9e6ef; border-radius:9px; padding:20px; box-shadow:0 3px 13px #21133b0b; }
+    .titulo { font-size:22px; margin-bottom:20px; color:var(--roxo); }
+    .status { background:white; border:1px solid var(--borda); border-radius:8px; padding:12px 14px; margin-bottom:18px; color:#5e5870; }
+    .graficos { display:grid; grid-template-columns:1.15fr 1fr; gap:18px; margin-bottom:22px; }
+    .grafico-card, .tabela-card, .form-card { background:white; padding:18px; border:1px solid #ebe8f0; border-radius:9px; box-shadow:0 2px 8px #0000000a; min-width:0; }
+    .grafico-card h3 { text-align:center; font-size:17px; font-weight:600; margin-bottom:18px; }
+    .grafico-area { height:290px; position:relative; }
+    .tabela-card { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; min-width:950px; font-size:13px; }
+    thead { background:#28213d; color:white; }
+    th, td { padding:12px 10px; text-align:left; }
+    td { border-bottom:1px solid #eeeaf4; }
+    tbody tr:hover { background:#f8f6fc; }
+    .observacao { min-width:180px; max-width:260px; }
+    .paginacao { display:flex; justify-content:space-between; align-items:center; padding-top:15px; font-size:13px; }
+    .paginacao button { padding:8px 13px; border:1px solid var(--borda); border-radius:5px; background:white; cursor:pointer; margin-left:5px; }
+    .paginacao button:disabled { opacity:.4; cursor:not-allowed; }
+
+    .identificacao { text-align:center; margin:0 0 22px; }
+    .identificacao h2 { font-size:23px; color:var(--roxo); margin-bottom:7px; }
+    .identificacao p { color:#6d667a; }
+    .dados-gerais { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:18px; }
+    .centralizar { text-align:center; margin:12px 0 16px; }
+    .servico-card { background:white; border:1px solid var(--borda); border-radius:9px; margin-bottom:10px; overflow:hidden; }
+    .servico-titulo { width:100%; padding:15px 18px; background:var(--azul-accordion); border:0; color:#263e68; font-size:15px; font-weight:600; text-align:left; cursor:pointer; display:flex; justify-content:space-between; gap:10px; }
+    .servico-titulo:hover { background:#c8dcf8; }
+    .servico-corpo { display:none; padding:18px; }
+    .servico-card.aberto .servico-corpo { display:block; }
+    .servico-corpo .campo { margin-bottom:14px; }
+    .metricas { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .mensagem-vazia { background:white; border-radius:8px; padding:25px; color:#777; text-align:center; }
+    footer { background:white; border-top:1px solid #e4e0eb; margin-top:0; padding:20px 25px; display:flex; justify-content:center; align-items:center; }
+    .credito { color:#665d78; font-size:14px; text-align:center; line-height:1.7; }
+
+    @media (max-width:950px) {
+      .dashboard, .atualizacao { grid-template-columns:1fr; }
+      .filtros, .painel-filtros { min-height:unset; }
+      .logo-lateral { min-height:190px; padding:28px 0 14px; }
+      .logo-lateral img { width:100%; max-width:340px; max-height:none; }
+      .graficos { grid-template-columns:1fr; }
+    }
+    @media (max-width:600px) {
+      .dados-gerais, .metricas { grid-template-columns:1fr; }
+      .dashboard, .atualizacao { padding:12px; gap:14px; }
+      .conteudo, .painel-formulario { padding:13px; }
+      .logo { font-size:29px; }
+      .menu button { padding:9px 13px; }
+      .grafico-area { height:250px; }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+ 
+<div class="logo">
+  <span class="logo-icone" aria-hidden="true">
+    <svg viewBox="0 0 40 40">
+      <rect x="3" y="25" width="6" height="11" rx="1" fill="#ffffff"/>
+      <rect x="12" y="19" width="6" height="17" rx="1" fill="#ffffff"/>
+      <rect x="21" y="12" width="6" height="24" rx="1" fill="#ffffff"/>
+      <rect x="30" y="4" width="6" height="32" rx="1" fill="#ffffff"/>
+    </svg>
+  </span>
+  <span>MobView</span>
+</div>
+
+
+  <nav class="menu">
+    <button id="btnAtualizar" onclick="abrirAtualizar()">
+      Atualizar Dados
+    </button>
+
+    <button id="btnVisao" class="ativo" onclick="abrirVisao()">
+      Visão Geral
+    </button>
+  </nav>
+</header>
+
+<!-- PÁGINA VISÃO GERAL -->
+
+<section id="paginaVisao" class="pagina ativa">
+
+  <main class="dashboard">
+
+    <aside class="filtros">
+      <h3>Filtros</h3>
+
+      <div class="campo">
+        <label>Secretaria</label>
+        <select id="fSecretaria">
+          <option value="">Todas</option>
+        </select>
+      </div>
+
+      <div class="campo">
+        <label>Agrupamento</label>
+        <select id="fAgrupamento">
+          <option value="">Todos</option>
+        </select>
+      </div>
+
+      <div class="campo">
+        <label>Serviço</label>
+        <select id="fServico">
+          <option value="">Todos</option>
+        </select>
+      </div>
+
+      <div class="campo">
+        <label>Data inicial</label>
+        <input type="date" id="fInicio">
+      </div>
+
+      <div class="campo">
+        <label>Data final</label>
+        <input type="date" id="fFim">
+      </div>
+
+      <button class="botao" style="width:100%" onclick="limparFiltrosVisao()">
+        Limpar filtros
+      </button>
+
+      <div class="logo-lateral">
+        <img src="https://natal.rn.gov.br/storage/app/media/secom/logos/png/Horizontal/Prefeitura_do_Natal_HORIZONTAL.png" alt="Prefeitura do Natal" onerror="this.style.display='none';">
+      </div>
+    </aside>
+
+    <section class="conteudo">
+      <h2 class="titulo">Visão Geral</h2>
+
+      <div id="statusVisao" class="status">
+        Carregando dados da planilha...
+      </div>
+
+      <div class="graficos">
+        <div class="grafico-card">
+          <h3>Série Histórica</h3>
+          <div class="grafico-area">
+            <canvas id="graficoBarras"></canvas>
+          </div>
+        </div>
+
+        <div class="grafico-card">
+          <h3>Tendência por Período</h3>
+          <div class="grafico-area">
+            <canvas id="graficoLinhas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabela-card">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Secretaria</th>
+              <th>Agrupamento</th>
+              <th>Serviço</th>
+              <th>Aberto</th>
+              <th>Andamento</th>
+              <th>Encerrado</th>
+              <th>Responsável</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+
+          <tbody id="corpoTabela">
+            <tr><td colspan="9">Carregando...</td></tr>
+          </tbody>
+        </table>
+
+        <div class="paginacao">
+          <span id="infoPagina"></span>
+          <div>
+            <button id="anterior" onclick="mudarPagina(-1)">Anterior</button>
+            <button id="proximo" onclick="mudarPagina(1)">Próxima</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</section>
+
+<!-- PÁGINA ATUALIZAR DADOS -->
+
+<section id="paginaAtualizar" class="pagina">
+
+  <main class="atualizacao">
+
+    <aside class="painel-filtros">
+      <h3>Selecionar dados</h3>
+
+      <div class="campo">
+        <label>Secretaria</label>
+        <select id="uSecretaria">
+          <option value="">Selecione...</option>
+        </select>
+      </div>
+
+      <div class="campo">
+        <label>Agrupamento</label>
+        <select id="uAgrupamento">
+          <option value="">Selecione...</option>
+        </select>
+      </div>
+
+      <div class="botoes">
+        <button class="botao secundario" onclick="limparFiltrosAtualizacao()">
+          Limpar
+        </button>
+        <button class="botao" onclick="filtrarAtualizacao()">
+          Filtrar
+        </button>
+      </div>
+
+      <div class="logo-lateral">
+        <img src="https://natal.rn.gov.br/storage/app/media/secom/logos/png/Horizontal/Prefeitura_do_Natal_HORIZONTAL.png" alt="Prefeitura do Natal" onerror="this.style.display='none';">
+      </div>
+    </aside>
+
+    <section class="painel-formulario">
+
+      <div class="identificacao">
+        <h2 id="nomeSecretaria">Atualizar Dados</h2>
+        <p id="nomeAgrupamento">Selecione uma secretaria e um agrupamento</p>
+      </div>
+
+      <div class="dados-gerais">
+        <div class="campo">
+          <label for="responsavel">Responsável</label>
+          <select id="responsavel">
+            <option value="">Selecione...</option>
+            <option value="Ywki">Ywki</option>
+            <option value="Arthur">Arthur</option>
+            <option value="Lívia">Lívia</option>
+            <option value="Rayara">Rayara</option>
+            <option value="Carla">Carla</option>
+          </select>
+        </div>
+
+        <div class="campo">
+          <label for="dataAtualizacao">Data Atualização</label>
+          <input type="date" id="dataAtualizacao">
+        </div>
+      </div>
+
+      <div class="centralizar">
+        <button class="botao secundario" onclick="puxarDadosSalvos()">
+          ↻ Puxar dados já salvos desta data
+        </button>
+      </div>
+
+      <div id="statusAtualizacao" class="status">
+        Selecione a secretaria, o agrupamento e clique em Filtrar.
+      </div>
+
+      <div id="listaServicos">
+        <div class="mensagem-vazia">
+          Os formulários dos serviços aparecerão aqui.
+        </div>
+      </div>
+
+      <div class="botoes" style="margin-top:20px">
+        <button class="botao" id="btnSalvar" onclick="salvarDados()">
+          Atualizar
+        </button>
+      </div>
+
+    </section>
+  </main>
+</section>
+
+<footer>
+  <div class="credito">Desenvolvido por Carla Beatriz - SEMPLA - 2026</div>
+</footer>
+
+<script>
+  let todosRegistros = [];
+  let registrosFiltrados = [];
+  let paginaAtual = 1;
+  const porPagina = 10;
+
+  let graficoBarras = null;
+  let graficoLinhas = null;
+
+  let servicosAtuais = [];
+  let responsaveisAtuais = [];
+
+  function escapar(valor) {
+    return String(valor == null ? "" : valor)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function hojeISO() {
+    const hoje = new Date();
+    const ano = hoje.getFullYear();
+    const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+    const dia = String(hoje.getDate()).padStart(2, "0");
+    return ano + "-" + mes + "-" + dia;
+  }
+
+  function formatarData(data) {
+    if (!data) return "";
+    const partes = data.split("-");
+    if (partes.length !== 3) return data;
+    return partes[2] + "/" + partes[1] + "/" + partes[0];
+  }
+
+  function preencherSelect(id, valores, textoInicial) {
+    const select = document.getElementById(id);
+    select.innerHTML = "";
+
+    select.add(new Option(textoInicial, ""));
+
+    valores.forEach(function(valor) {
+      select.add(new Option(valor, valor));
+    });
+  }
+
+  // CARREGAMENTO INICIAL DOS DADOS
+
+  function carregarDados() {
+    google.script.run
+      .withSuccessHandler(function(resultado) {
+
+        todosRegistros = resultado.registros || [];
+
+        const secretarias = [...new Set(
+          todosRegistros.map(r => r.secretaria).filter(Boolean)
+        )].sort();
+
+        preencherSelect("fSecretaria", secretarias, "Todas");
+        preencherSelect("uSecretaria", secretarias, "Selecione...");
+
+        atualizarFiltrosVisao();
+
+        document.getElementById("statusVisao").textContent =
+          "Conexão realizada! " + todosRegistros.length +
+          " registros encontrados.";
+
+      })
+      .withFailureHandler(function(erro) {
+        document.getElementById("statusVisao").textContent =
+          "Erro ao carregar dados: " + erro.message;
+      })
+      .buscarDadosVisaoGeral();
+  }
+
+  // NAVEGAÇÃO ENTRE AS TELAS
+
+  function abrirVisao() {
+    document.getElementById("paginaVisao").classList.add("ativa");
+    document.getElementById("paginaAtualizar").classList.remove("ativa");
+    document.getElementById("btnVisao").classList.add("ativo");
+    document.getElementById("btnAtualizar").classList.remove("ativo");
+    atualizarGraficos();
+    atualizarTabela();
+  }
+
+  function abrirAtualizar() {
+    document.getElementById("paginaAtualizar").classList.add("ativa");
+    document.getElementById("paginaVisao").classList.remove("ativa");
+    document.getElementById("btnAtualizar").classList.add("ativo");
+    document.getElementById("btnVisao").classList.remove("ativo");
+
+    document.getElementById("dataAtualizacao").value = hojeISO();
+    window.scrollTo(0, 0);
+  }
+
+  // FILTROS DA VISÃO GERAL
+
+  function atualizarFiltrosVisao() {
+    const secretaria = document.getElementById("fSecretaria").value;
+    const agrupamento = document.getElementById("fAgrupamento").value;
+
+    const base = todosRegistros.filter(r =>
+      !secretaria || r.secretaria === secretaria
+    );
+
+    const agrupamentos = [...new Set(
+      base.map(r => r.agrupamento).filter(Boolean)
+    )].sort();
+
+    preencherSelect("fAgrupamento", agrupamentos, "Todos");
+
+    const baseServicos = base.filter(r =>
+      !agrupamento || r.agrupamento === agrupamento
+    );
+
+    const servicos = [...new Set(
+      baseServicos.map(r => r.servico).filter(Boolean)
+    )].sort();
+
+    preencherSelect("fServico", servicos, "Todos");
+  }
+
+  document.getElementById("fSecretaria").addEventListener("change", function() {
+    atualizarFiltrosVisao();
+    aplicarFiltrosVisao();
+  });
+
+  document.getElementById("fAgrupamento").addEventListener("change", function() {
+    const secretaria = document.getElementById("fSecretaria").value;
+
+    const base = todosRegistros.filter(r =>
+      (!secretaria || r.secretaria === secretaria) &&
+      (!this.value || r.agrupamento === this.value)
+    );
+
+    const servicos = [...new Set(
+      base.map(r => r.servico).filter(Boolean)
+    )].sort();
+
+    preencherSelect("fServico", servicos, "Todos");
+    aplicarFiltrosVisao();
+  });
+
+  document.getElementById("fServico").addEventListener("change", aplicarFiltrosVisao);
+  document.getElementById("fInicio").addEventListener("change", aplicarFiltrosVisao);
+  document.getElementById("fFim").addEventListener("change", aplicarFiltrosVisao);
+
+  function aplicarFiltrosVisao() {
+    const secretaria = document.getElementById("fSecretaria").value;
+    const agrupamento = document.getElementById("fAgrupamento").value;
+    const servico = document.getElementById("fServico").value;
+    const inicio = document.getElementById("fInicio").value;
+    const fim = document.getElementById("fFim").value;
+
+    registrosFiltrados = todosRegistros.filter(r =>
+      (!secretaria || r.secretaria === secretaria) &&
+      (!agrupamento || r.agrupamento === agrupamento) &&
+      (!servico || r.servico === servico) &&
+      (!inicio || r.data >= inicio) &&
+      (!fim || r.data <= fim)
+    );
+
+    paginaAtual = 1;
+    atualizarGraficos();
+    atualizarTabela();
+  }
+
+  function limparFiltrosVisao() {
+    document.getElementById("fSecretaria").value = "";
+    document.getElementById("fInicio").value = "";
+    document.getElementById("fFim").value = "";
+
+    atualizarFiltrosVisao();
+    aplicarFiltrosVisao();
+  }
+
+  // GRÁFICOS
+
+  function agruparPorData() {
+    const grupos = {};
+
+    registrosFiltrados.forEach(function(r) {
+      if (!grupos[r.data]) {
+        grupos[r.data] = {
+          aberto: 0,
+          andamento: 0,
+          encerrado: 0
+        };
+      }
+
+      grupos[r.data].aberto += Number(r.aberto) || 0;
+      grupos[r.data].andamento += Number(r.andamento) || 0;
+      grupos[r.data].encerrado += Number(r.encerrado) || 0;
+    });
+
+    return Object.keys(grupos).sort().map(data => ({
+      data: data,
+      aberto: grupos[data].aberto,
+      andamento: grupos[data].andamento,
+      encerrado: grupos[data].encerrado
+    }));
+  }
+
+  function atualizarGraficos() {
+    if (typeof Chart === "undefined") return;
+
+    const dados = agruparPorData();
+    const datas = dados.map(r => formatarData(r.data));
+
+    const aberto = dados.map(r => r.aberto);
+    const andamento = dados.map(r => r.andamento);
+    const encerrado = dados.map(r => r.encerrado);
+
+    if (graficoBarras) graficoBarras.destroy();
+    if (graficoLinhas) graficoLinhas.destroy();
+
+    const cores = ["#392477", "#b58a35", "#263d35"];
+
+    graficoBarras = new Chart(document.getElementById("graficoBarras"), {
+      type: "bar",
+      data: {
+        labels: datas,
+        datasets: [
+          { label: "Aberto", data: aberto, backgroundColor: cores[0] },
+          { label: "Andamento", data: andamento, backgroundColor: cores[1] },
+          { label: "Encerrado", data: encerrado, backgroundColor: cores[2] }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true },
+          x: { ticks: { maxRotation: 55, minRotation: 55, autoSkip: true } }
+        }
+      }
+    });
+
+    graficoLinhas = new Chart(document.getElementById("graficoLinhas"), {
+      type: "line",
+      data: {
+        labels: datas,
+        datasets: [
+          { label: "Aberto", data: aberto, borderColor: cores[0], tension: .2 },
+          { label: "Andamento", data: andamento, borderColor: cores[1], tension: .2 },
+          { label: "Encerrado", data: encerrado, borderColor: cores[2], tension: .2 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true },
+          x: { ticks: { maxRotation: 55, minRotation: 55, autoSkip: true } }
+        }
+      }
+    });
+  }
+
+  // TABELA E PAGINAÇÃO
+
+  function atualizarTabela() {
+    const corpo = document.getElementById("corpoTabela");
+    const inicio = (paginaAtual - 1) * porPagina;
+    const pagina = registrosFiltrados.slice(inicio, inicio + porPagina);
+
+    if (!pagina.length) {
+      corpo.innerHTML = '<tr><td colspan="9">Nenhum registro encontrado.</td></tr>';
+    } else {
+      corpo.innerHTML = pagina.map(r => `
+        <tr>
+          <td>${escapar(formatarData(r.data))}</td>
+          <td>${escapar(r.secretaria)}</td>
+          <td>${escapar(r.agrupamento)}</td>
+          <td>${escapar(r.servico)}</td>
+          <td>${Number(r.aberto) || 0}</td>
+          <td>${Number(r.andamento) || 0}</td>
+          <td>${Number(r.encerrado) || 0}</td>
+          <td>${escapar(r.responsavel)}</td>
+          <td class="observacao">${escapar(r.observacao)}</td>
+        </tr>
+      `).join("");
+    }
+
+    const total = Math.ceil(registrosFiltrados.length / porPagina);
+
+    document.getElementById("infoPagina").textContent =
+      "Página " + (registrosFiltrados.length ? paginaAtual : 0) +
+      " de " + total + " | " + registrosFiltrados.length + " registros";
+
+    document.getElementById("anterior").disabled = paginaAtual <= 1;
+    document.getElementById("proximo").disabled =
+      paginaAtual >= total || total === 0;
+  }
+
+  function mudarPagina(direcao) {
+    const total = Math.ceil(registrosFiltrados.length / porPagina);
+    paginaAtual = Math.max(1, Math.min(total, paginaAtual + direcao));
+    atualizarTabela();
+  }
+
+  // FILTROS DA TELA ATUALIZAR DADOS
+
+  document.getElementById("uSecretaria").addEventListener("change", function() {
+    const secretaria = this.value;
+
+    const agrupamentos = [...new Set(
+      todosRegistros
+        .filter(r => r.secretaria === secretaria)
+        .map(r => r.agrupamento)
+        .filter(Boolean)
+    )].sort();
+
+    preencherSelect("uAgrupamento", agrupamentos, "Selecione...");
+  });
+
+  function limparFiltrosAtualizacao() {
+    document.getElementById("uSecretaria").value = "";
+    preencherSelect("uAgrupamento", [], "Selecione...");
+    document.getElementById("nomeSecretaria").textContent = "Atualizar Dados";
+    document.getElementById("nomeAgrupamento").textContent =
+      "Selecione uma secretaria e um agrupamento";
+
+    document.getElementById("listaServicos").innerHTML =
+      '<div class="mensagem-vazia">Selecione os filtros para carregar os serviços.</div>';
+
+    document.getElementById("statusAtualizacao").textContent = "";
+  }
+
+  function filtrarAtualizacao() {
+    const secretaria = document.getElementById("uSecretaria").value;
+    const agrupamento = document.getElementById("uAgrupamento").value;
+
+    if (!secretaria || !agrupamento) {
+      alert("Selecione a secretaria e o agrupamento.");
+      return;
+    }
+
+    document.getElementById("nomeSecretaria").textContent = secretaria;
+    document.getElementById("nomeAgrupamento").textContent = agrupamento;
+
+    puxarDadosSalvos();
+  }
+
+  // BUSCAR SERVIÇOS E REGISTROS DA DATA
+
+  function puxarDadosSalvos() {
+    const secretaria = document.getElementById("uSecretaria").value;
+    const agrupamento = document.getElementById("uAgrupamento").value;
+    const data = document.getElementById("dataAtualizacao").value;
+
+    if (!secretaria || !agrupamento || !data) {
+      alert("Selecione secretaria, agrupamento e data.");
+      return;
+    }
+
+    document.getElementById("statusAtualizacao").textContent =
+      "Buscando serviços e dados salvos...";
+
+    google.script.run
+      .withSuccessHandler(function(resultado) {
+
+        servicosAtuais = resultado.servicos || [];
+        responsaveisAtuais = ["Ywki", "Arthur", "Lívia", "Rayara", "Carla"];
+
+        montarFormularios(resultado.salvos || {});
+
+        document.getElementById("statusAtualizacao").textContent =
+          servicosAtuais.length + " serviço(s) encontrado(s). " +
+          "Confira os campos antes de salvar.";
+
+      })
+      .withFailureHandler(function(erro) {
+        document.getElementById("statusAtualizacao").textContent =
+          "Erro: " + erro.message;
+      })
+      .obterDadosAtualizacao(secretaria, agrupamento, data);
+  }
+
+  // FORMULÁRIO EXPANSÍVEL DE CADA SERVIÇO
+
+  function montarFormularios(salvos) {
+    const area = document.getElementById("listaServicos");
+
+    if (!servicosAtuais.length) {
+      area.innerHTML =
+        '<div class="mensagem-vazia">Nenhum serviço encontrado para esta secretaria e agrupamento.</div>';
+      return;
+    }
+
+    area.innerHTML = servicosAtuais.map(function(servico, i) {
+
+      const registro = salvos[servico] || {
+        aberto: 0,
+        andamento: 0,
+        encerrado: 0,
+        observacao: ""
+      };
+
+      return `
+        <div class="servico-card" id="servicoCard${i}">
+          <button class="servico-titulo" type="button"
+            onclick="alternarServico(${i})">
+            <span>${i + 1}. ${escapar(servico)}</span>
+            <span>⌄</span>
+          </button>
+
+          <div class="servico-corpo">
+
+            <div class="campo">
+              <label>Serviço</label>
+              <input value="${escapar(servico)}" disabled>
+            </div>
+
+            <div class="metricas">
+              <div class="campo">
+                <label>Aberto</label>
+                <input type="number" min="0" step="1"
+                  id="aberto${i}" value="${Number(registro.aberto) || 0}">
+              </div>
+
+              <div class="campo">
+                <label>Andamento</label>
+                <input type="number" min="0" step="1"
+                  id="andamento${i}" value="${Number(registro.andamento) || 0}">
+              </div>
+
+              <div class="campo">
+                <label>Encerrado</label>
+                <input type="number" min="0" step="1"
+                  id="encerrado${i}" value="${Number(registro.encerrado) || 0}">
+              </div>
+            </div>
+
+            <div class="campo">
+              <label>Observação</label>
+              <textarea id="observacao${i}"
+                placeholder="Digite uma observação...">${escapar(registro.observacao)}</textarea>
+            </div>
+
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    if (servicosAtuais.length) {
+      document.getElementById("servicoCard0").classList.add("aberto");
+    }
+  }
+
+  function alternarServico(indice) {
+    document.getElementById("servicoCard" + indice)
+      .classList.toggle("aberto");
+  }
+
+  // SALVAR DADOS
+
+  function salvarDados() {
+    const secretaria = document.getElementById("uSecretaria").value;
+    const agrupamento = document.getElementById("uAgrupamento").value;
+    const data = document.getElementById("dataAtualizacao").value;
+    const responsavel = document.getElementById("responsavel").value.trim();
+
+    if (!secretaria || !agrupamento || !data || !responsavel) {
+      alert("Preencha secretaria, agrupamento, data e responsável.");
+      return;
+    }
+
+    if (!servicosAtuais.length) {
+      alert("Não há serviços carregados para salvar.");
+      return;
+    }
+
+    const registros = [];
+
+    for (let i = 0; i < servicosAtuais.length; i++) {
+      const aberto = Number(document.getElementById("aberto" + i).value);
+      const andamento = Number(document.getElementById("andamento" + i).value);
+      const encerrado = Number(document.getElementById("encerrado" + i).value);
+
+      if ([aberto, andamento, encerrado].some(v =>
+        !Number.isInteger(v) || v < 0
+      )) {
+        alert("Os indicadores devem ser números inteiros iguais ou maiores que zero.");
+        return;
+      }
+
+      registros.push({
+        servico: servicosAtuais[i],
+        aberto: aberto,
+        andamento: andamento,
+        encerrado: encerrado,
+        observacao: document.getElementById("observacao" + i).value
+      });
+    }
+
+    const formulario = {
+      secretaria: secretaria,
+      agrupamento: agrupamento,
+      data: data,
+      responsavel: responsavel,
+      registros: registros
+    };
+
+    const botao = document.getElementById("btnSalvar");
+    botao.disabled = true;
+    botao.textContent = "Salvando...";
+
+    google.script.run
+      .withSuccessHandler(function(resultado) {
+
+        botao.disabled = false;
+        botao.textContent = "Atualizar";
+
+        document.getElementById("statusAtualizacao").textContent =
+          resultado.mensagem;
+
+        carregarDados();
+
+      })
+      .withFailureHandler(function(erro) {
+
+        botao.disabled = false;
+        botao.textContent = "Atualizar";
+
+        alert("Não foi possível salvar: " + erro.message);
+
+      })
+      .salvarAtualizacoes(formulario);
+  }
+
+  // INICIAR
+
+  preencherSelect("uAgrupamento", [], "Selecione...");
+  carregarDados();
+</script>
+
+</body>
+</html>
