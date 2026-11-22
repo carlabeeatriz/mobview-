@@ -749,39 +749,61 @@
 
   // BUSCAR SERVIÇOS E REGISTROS DA DATA
 
-  function puxarDadosSalvos() {
-    const secretaria = document.getElementById("uSecretaria").value;
-    const agrupamento = document.getElementById("uAgrupamento").value;
-    const data = document.getElementById("dataAtualizacao").value;
+ function puxarDadosSalvos() {
+  const secretaria = document.getElementById("uSecretaria").value;
+  const agrupamento = document.getElementById("uAgrupamento").value;
+  const data = document.getElementById("dataAtualizacao").value;
 
-    if (!secretaria || !agrupamento || !data) {
-      alert("Selecione secretaria, agrupamento e data.");
+  if (!secretaria || !agrupamento || !data) {
+    alert("Selecione secretaria, agrupamento e data.");
+    return;
+  }
+
+  const status = document.getElementById("statusAtualizacao");
+  status.textContent = "Buscando serviços e dados salvos...";
+
+  const script = document.createElement("script");
+  const callbackName = "mobViewAtualizacao_" + Date.now();
+
+  window[callbackName] = function(resultado) {
+    delete window[callbackName];
+    script.remove();
+
+    if (resultado.erro) {
+      status.textContent = "Erro: " + resultado.erro;
       return;
     }
 
-    document.getElementById("statusAtualizacao").textContent =
-      "Buscando serviços e dados salvos...";
+    servicosAtuais = resultado.servicos || [];
+    responsaveisAtuais = ["Ywki", "Arthur", "Lívia", "Rayara", "Carla"];
 
-    google.script.run
-      .withSuccessHandler(function(resultado) {
+    montarFormularios(resultado.salvos || {});
 
-        servicosAtuais = resultado.servicos || [];
-        responsaveisAtuais = ["Ywki", "Arthur", "Lívia", "Rayara", "Carla"];
+    status.textContent =
+      servicosAtuais.length + " serviço(s) encontrado(s). " +
+      "Confira os campos antes de salvar.";
+  };
 
-        montarFormularios(resultado.salvos || {});
+  script.onerror = function() {
+    delete window[callbackName];
+    script.remove();
+    status.textContent = "Erro de conexão com o Apps Script.";
+  };
 
-        document.getElementById("statusAtualizacao").textContent =
-          servicosAtuais.length + " serviço(s) encontrado(s). " +
-          "Confira os campos antes de salvar.";
+  const parametros = new URLSearchParams({
+    action: "atualizarDados",
+    secretaria: secretaria,
+    agrupamento: agrupamento,
+    data: data,
+    callback: callbackName
+  });
 
-      })
-      .withFailureHandler(function(erro) {
-        document.getElementById("statusAtualizacao").textContent =
-          "Erro: " + erro.message;
-      })
-      .obterDadosAtualizacao(secretaria, agrupamento, data);
-  }
+  script.src =
+    "https://script.google.com/macros/s/AKfycbxwJwKHtz_8Hd6qPejkDWDo0x3NW1Oou-Zjwnbico7cs8RyarQuid4X9mLOS9pbipdp/exec?" +
+    parametros.toString();
 
+  document.body.appendChild(script);
+}
   // FORMULÁRIO EXPANSÍVEL DE CADA SERVIÇO
 
   function montarFormularios(salvos) {
