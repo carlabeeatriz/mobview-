@@ -398,6 +398,53 @@
   let servicosAtuais = [];
   let responsaveisAtuais = [];
 
+  const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbxwJwKHtz_8Hd6qPejkDWDo0x3NW1Oou-Zjwnbico7cs8RyarQuid4X9mLOS9pbipdp/exec";
+
+function consultarAppsScript(parametros, sucesso, falha) {
+  const nomeCallback = "mobview_" + Date.now() + "_" +
+    Math.random().toString(36).substring(2);
+
+  const script = document.createElement("script");
+  const query = new URLSearchParams({
+    ...parametros,
+    callback: nomeCallback
+  });
+
+  let finalizado = false;
+
+  function limpar() {
+    if (finalizado) return;
+    finalizado = true;
+    delete window[nomeCallback];
+    script.remove();
+    clearTimeout(temporizador);
+  }
+
+  window[nomeCallback] = function(resultado) {
+    limpar();
+
+    if (resultado.erro) {
+      falha(new Error(resultado.erro));
+      return;
+    }
+
+    sucesso(resultado);
+  };
+
+  script.onerror = function() {
+    limpar();
+    falha(new Error("Falha na comunicação com o Apps Script."));
+  };
+
+  const temporizador = setTimeout(function() {
+    limpar();
+    falha(new Error("Tempo limite de comunicação excedido."));
+  }, 20000);
+
+  script.src = URL_APPS_SCRIPT + "?" + query.toString();
+  document.body.appendChild(script);
+}
+
   function escapar(valor) {
     return String(valor == null ? "" : valor)
       .replace(/&/g, "&amp;")
@@ -436,47 +483,34 @@
   // CARREGAMENTO INICIAL DOS DADOS
 
  function carregarDados() {
-  const status = document.getElementById("statusVisao");
-  const script = document.createElement("script");
-  const callbackName = "mobViewCallback_" + Date.now();
+  consultarAppsScript(
+    { action: "visaoGeral" },
 
-  window[callbackName] = function(resultado) {
-    delete window[callbackName];
-    script.remove();
+    function(resultado) {
+      todosRegistros = resultado.registros || [];
 
-    if (resultado.erro) {
-      status.textContent = "Erro ao carregar dados: " + resultado.erro;
-      return;
+      const secretarias = [...new Set(
+        todosRegistros.map(r => r.secretaria).filter(Boolean)
+      )].sort();
+
+      preencherSelect("fSecretaria", secretarias, "Todas");
+      preencherSelect("uSecretaria", secretarias, "Selecione...");
+
+      atualizarFiltrosVisao();
+      aplicarFiltrosVisao();
+
+      document.getElementById("statusVisao").textContent =
+        "Conexão realizada! " + todosRegistros.length +
+        " registros encontrados.";
+    },
+
+    function(erro) {
+      document.getElementById("statusVisao").textContent =
+        "Erro ao carregar dados: " + erro.message;
     }
-
-    todosRegistros = resultado.registros || [];
-
-    const secretarias = [...new Set(
-      todosRegistros.map(r => r.secretaria).filter(Boolean)
-    )].sort();
-
-    preencherSelect("fSecretaria", secretarias, "Todas");
-    preencherSelect("uSecretaria", secretarias, "Selecione...");
-
-    atualizarFiltrosVisao();
-
-    status.textContent =
-      "Conexão realizada! " + todosRegistros.length +
-      " registros encontrados.";
-  };
-
-  script.onerror = function() {
-    delete window[callbackName];
-    script.remove();
-    status.textContent = "Erro ao conectar com o Apps Script.";
-  };
-
-  script.src =
-    "https://script.google.com/macros/s/AKfycbxwJwKHtz_8Hd6qPejkDWDo0x3NW1Oou-Zjwnbico7cs8RyarQuid4X9mLOS9pbipdp/exec?action=visaoGeral&callback=" +
-    callbackName;
-
-  document.body.appendChild(script);
+  );
 }
+
   // NAVEGAÇÃO ENTRE AS TELAS
 
   function abrirVisao() {
@@ -759,51 +793,36 @@
     return;
   }
 
-  const status = document.getElementById("statusAtualizacao");
-  status.textContent = "Buscando serviços e dados salvos...";
+  document.getElementById("statusAtualizacao").textContent =
+    "Buscando serviços e dados salvos...";
 
-  const script = document.createElement("script");
-  const callbackName = "mobViewAtualizacao_" + Date.now();
+  consultarAppsScript(
+    {
+      action: "atualizarDados",
+      secretaria: secretaria,
+      agrupamento: agrupamento,
+      data: data
+    },
 
-  window[callbackName] = function(resultado) {
-    delete window[callbackName];
-    script.remove();
+    function(resultado) {
+      servicosAtuais = resultado.servicos || [];
 
-    if (resultado.erro) {
-      status.textContent = "Erro: " + resultado.erro;
-      return;
+      responsaveisAtuais = resultado.responsaveis || [];
+
+      montarFormularios(resultado.salvos || {});
+
+      document.getElementById("statusAtualizacao").textContent =
+        servicosAtuais.length + " serviço(s) encontrado(s). " +
+        "Confira os campos antes de salvar.";
+    },
+
+    function(erro) {
+      document.getElementById("statusAtualizacao").textContent =
+        "Erro: " + erro.message;
     }
-
-    servicosAtuais = resultado.servicos || [];
-    responsaveisAtuais = ["Ywki", "Arthur", "Lívia", "Rayara", "Carla"];
-
-    montarFormularios(resultado.salvos || {});
-
-    status.textContent =
-      servicosAtuais.length + " serviço(s) encontrado(s). " +
-      "Confira os campos antes de salvar.";
-  };
-
-  script.onerror = function() {
-    delete window[callbackName];
-    script.remove();
-    status.textContent = "Erro de conexão com o Apps Script.";
-  };
-
-  const parametros = new URLSearchParams({
-    action: "atualizarDados",
-    secretaria: secretaria,
-    agrupamento: agrupamento,
-    data: data,
-    callback: callbackName
-  });
-
-  script.src =
-    "https://script.google.com/macros/s/AKfycbxwJwKHtz_8Hd6qPejkDWDo0x3NW1Oou-Zjwnbico7cs8RyarQuid4X9mLOS9pbipdp/exec?" +
-    parametros.toString();
-
-  document.body.appendChild(script);
+  );
 }
+
   // FORMULÁRIO EXPANSÍVEL DE CADA SERVIÇO
 
   function montarFormularios(salvos) {
@@ -883,78 +902,139 @@
   // SALVAR DADOS
 
   function salvarDados() {
-    const secretaria = document.getElementById("uSecretaria").value;
-    const agrupamento = document.getElementById("uAgrupamento").value;
-    const data = document.getElementById("dataAtualizacao").value;
-    const responsavel = document.getElementById("responsavel").value.trim();
+  const secretaria = document.getElementById("uSecretaria").value;
+  const agrupamento = document.getElementById("uAgrupamento").value;
+  const data = document.getElementById("dataAtualizacao").value;
+  const responsavel = document.getElementById("responsavel").value.trim();
 
-    if (!secretaria || !agrupamento || !data || !responsavel) {
-      alert("Preencha secretaria, agrupamento, data e responsável.");
-      return;
-    }
-
-    if (!servicosAtuais.length) {
-      alert("Não há serviços carregados para salvar.");
-      return;
-    }
-
-    const registros = [];
-
-    for (let i = 0; i < servicosAtuais.length; i++) {
-      const aberto = Number(document.getElementById("aberto" + i).value);
-      const andamento = Number(document.getElementById("andamento" + i).value);
-      const encerrado = Number(document.getElementById("encerrado" + i).value);
-
-      if ([aberto, andamento, encerrado].some(v =>
-        !Number.isInteger(v) || v < 0
-      )) {
-        alert("Os indicadores devem ser números inteiros iguais ou maiores que zero.");
-        return;
-      }
-
-      registros.push({
-        servico: servicosAtuais[i],
-        aberto: aberto,
-        andamento: andamento,
-        encerrado: encerrado,
-        observacao: document.getElementById("observacao" + i).value
-      });
-    }
-
-    const formulario = {
-      secretaria: secretaria,
-      agrupamento: agrupamento,
-      data: data,
-      responsavel: responsavel,
-      registros: registros
-    };
-
-    const botao = document.getElementById("btnSalvar");
-    botao.disabled = true;
-    botao.textContent = "Salvando...";
-
-    google.script.run
-      .withSuccessHandler(function(resultado) {
-
-        botao.disabled = false;
-        botao.textContent = "Atualizar";
-
-        document.getElementById("statusAtualizacao").textContent =
-          resultado.mensagem;
-
-        carregarDados();
-
-      })
-      .withFailureHandler(function(erro) {
-
-        botao.disabled = false;
-        botao.textContent = "Atualizar";
-
-        alert("Não foi possível salvar: " + erro.message);
-
-      })
-      .salvarAtualizacoes(formulario);
+  if (!secretaria || !agrupamento || !data || !responsavel) {
+    alert("Preencha secretaria, agrupamento, data e responsável.");
+    return;
   }
+
+  if (!servicosAtuais.length) {
+    alert("Não há serviços carregados para salvar.");
+    return;
+  }
+
+  const registros = [];
+
+  for (let i = 0; i < servicosAtuais.length; i++) {
+    const aberto = Number(document.getElementById("aberto" + i).value);
+    const andamento = Number(document.getElementById("andamento" + i).value);
+    const encerrado = Number(document.getElementById("encerrado" + i).value);
+
+    if ([aberto, andamento, encerrado].some(v =>
+      !Number.isInteger(v) || v < 0
+    )) {
+      alert("Os indicadores devem ser números inteiros iguais ou maiores que zero.");
+      return;
+    }
+
+    registros.push({
+      servico: servicosAtuais[i],
+      aberto: aberto,
+      andamento: andamento,
+      encerrado: encerrado,
+      observacao: document.getElementById("observacao" + i).value
+    });
+  }
+
+  const formulario = {
+    secretaria: secretaria,
+    agrupamento: agrupamento,
+    data: data,
+    responsavel: responsavel,
+    registros: registros
+  };
+
+  const botao = document.getElementById("btnSalvar");
+  botao.disabled = true;
+  botao.textContent = "Salvando...";
+
+  const callbackId = "mobview_" + Date.now() + "_" +
+    Math.random().toString(36).substring(2);
+
+  const iframe = document.createElement("iframe");
+  iframe.name = callbackId;
+  iframe.style.display = "none";
+
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = URL_APPS_SCRIPT;
+  form.target = callbackId;
+  form.style.display = "none";
+
+  function adicionarCampo(nome, valor) {
+    const campo = document.createElement("input");
+    campo.type = "hidden";
+    campo.name = nome;
+    campo.value = valor;
+    form.appendChild(campo);
+  }
+
+  adicionarCampo("callbackId", callbackId);
+  adicionarCampo("formulario", JSON.stringify(formulario));
+
+  document.body.appendChild(iframe);
+  document.body.appendChild(form);
+
+  let finalizado = false;
+
+  function finalizar() {
+    if (finalizado) return;
+    finalizado = true;
+
+    window.removeEventListener("message", receberResposta);
+    clearTimeout(temporizador);
+
+    form.remove();
+    iframe.remove();
+
+    botao.disabled = false;
+    botao.textContent = "Atualizar";
+  }
+
+  function receberResposta(evento) {
+    const resposta = evento.data;
+
+    if (
+      !resposta ||
+      resposta.tipo !== "mobview-salvamento" ||
+      resposta.id !== callbackId
+    ) {
+      return;
+    }
+
+    finalizar();
+
+    if (resposta.resultado && resposta.resultado.sucesso) {
+      document.getElementById("statusAtualizacao").textContent =
+        resposta.resultado.mensagem;
+
+      carregarDados();
+
+      // Atualiza também os dados salvos da data atual
+      puxarDadosSalvos();
+
+    } else {
+      const mensagem = resposta.resultado
+        ? resposta.resultado.erro
+        : "Não foi possível confirmar o salvamento.";
+
+      alert("Não foi possível salvar: " + mensagem);
+    }
+  }
+
+  window.addEventListener("message", receberResposta);
+
+  const temporizador = setTimeout(function() {
+    finalizar();
+    alert("Tempo limite excedido. Verifique a planilha antes de tentar salvar novamente.");
+  }, 30000);
+
+  form.submit();
+}
 
   // INICIAR
 
