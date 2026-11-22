@@ -385,7 +385,29 @@
 <footer>
   <div class="credito">Desenvolvido por Carla Beatriz - SEMPLA - 2026</div>
 </footer>
+<script>
 
+window.addEventListener("error", function(evento) {
+
+  const status = document.getElementById("statusVisao");
+
+  if (status) {
+
+    status.textContent =
+
+      "ERRO NO JAVASCRIPT: " +
+
+      evento.message +
+
+      " | Linha: " +
+
+      evento.lineno;
+
+  }
+
+});
+
+</script>
 <script>
   let todosRegistros = [];
   let registrosFiltrados = [];
