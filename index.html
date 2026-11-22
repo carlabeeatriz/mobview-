@@ -435,33 +435,48 @@
 
   // CARREGAMENTO INICIAL DOS DADOS
 
-  function carregarDados() {
-    google.script.run
-      .withSuccessHandler(function(resultado) {
+ function carregarDados() {
+  const status = document.getElementById("statusVisao");
+  const script = document.createElement("script");
+  const callbackName = "mobViewCallback_" + Date.now();
 
-        todosRegistros = resultado.registros || [];
+  window[callbackName] = function(resultado) {
+    delete window[callbackName];
+    script.remove();
 
-        const secretarias = [...new Set(
-          todosRegistros.map(r => r.secretaria).filter(Boolean)
-        )].sort();
+    if (resultado.erro) {
+      status.textContent = "Erro ao carregar dados: " + resultado.erro;
+      return;
+    }
 
-        preencherSelect("fSecretaria", secretarias, "Todas");
-        preencherSelect("uSecretaria", secretarias, "Selecione...");
+    todosRegistros = resultado.registros || [];
 
-        atualizarFiltrosVisao();
+    const secretarias = [...new Set(
+      todosRegistros.map(r => r.secretaria).filter(Boolean)
+    )].sort();
 
-        document.getElementById("statusVisao").textContent =
-          "Conexão realizada! " + todosRegistros.length +
-          " registros encontrados.";
+    preencherSelect("fSecretaria", secretarias, "Todas");
+    preencherSelect("uSecretaria", secretarias, "Selecione...");
 
-      })
-      .withFailureHandler(function(erro) {
-        document.getElementById("statusVisao").textContent =
-          "Erro ao carregar dados: " + erro.message;
-      })
-      .buscarDadosVisaoGeral();
-  }
+    atualizarFiltrosVisao();
 
+    status.textContent =
+      "Conexão realizada! " + todosRegistros.length +
+      " registros encontrados.";
+  };
+
+  script.onerror = function() {
+    delete window[callbackName];
+    script.remove();
+    status.textContent = "Erro ao conectar com o Apps Script.";
+  };
+
+  script.src =
+    "https://script.google.com/macros/s/AKfycbxwJwKHtz_8Hd6qPejkDWDo0x3NW1Oou-Zjwnbico7cs8RyarQuid4X9mLOS9pbipdp/exec?action=visaoGeral&callback=" +
+    callbackName;
+
+  document.body.appendChild(script);
+}
   // NAVEGAÇÃO ENTRE AS TELAS
 
   function abrirVisao() {
